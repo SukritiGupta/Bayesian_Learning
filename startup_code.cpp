@@ -25,7 +25,7 @@ template<typename T>
 void printVector(const T& t) {
     cout << "[ ";
     std::copy(t.cbegin(), t.cend(), std::ostream_iterator<typename T::value_type>(std::cout, ", "));
-    cout << "]" << endl;
+    cout << "]" ;
 } 
 
 
@@ -117,19 +117,17 @@ public:
         return 1;
     }
 
-    void fill_count_table(vector<vector<int>>::iterator example, auto graph){
-        // printf("called");
+    void fill_count_table(vector<vector<int>>::iterator example){
         int index = 0;
         int group_size = 1;
         for(int i=Parents.size()-1; i>=0; i--){
-            // this parents value is (*example)[i]
+            // this parents value is (*example)[Parents[i]]
             index += group_size * ((*example)[Parents[i]]);
             // group_size *= graph.get_nth_node(Parents[i])->nvalues;
             group_size *= Parents_nvalues[i];
         }
         index += group_size * ((*example)[this->my_index]);
         Table[index] = this->Table[index] + 1 ;
-        // printf(" and returned\n");
     }
 
     void update_count_table(vector<int>& example, int changed_variable, int last_value){
@@ -138,28 +136,72 @@ public:
     }
 
     bool update_CPT(){
-        // cout << "called";
         bool unchanged = true;
-        float normalisation = accumulate(this->Table.begin(), this->Table.end(), 0.0);
-        for(int i=0; i<this->CPT.size(); i++){
-            float prev = this->CPT[i];
-            this->CPT[i] = Table[i]/normalisation;
-            unchanged = unchanged && (prev-CPT[i] < THRESHOLD); 
+        for(int j=0; j<Table.size()/nvalues; j++){
+            int norm = 0;
+            bool no_zero_exists = true;
+            for(int i=0; i<nvalues; i++){
+                norm += Table[i + nvalues*j];
+                no_zero_exists = no_zero_exists && (Table[i + nvalues*j] != 0);
+            }
+            float smoothing_factor = 0;
+            if(!no_zero_exists) smoothing_factor = 0.15;
+            for(int i=0; i<nvalues; i++){
+                int ind = i+ nvalues*j;
+                float prev = CPT[ind];
+                CPT[ind] = (((float)Table[ind])+smoothing_factor)/((float)norm + ((float)nvalues)*smoothing_factor);
+                if(CPT[ind]==0) cout << Node_Name << ":\t[" << ind << "]:" <<CPT[ind] << "\tnorm: " << norm << "\tmy_val: " << Table[ind] << endl;
+                unchanged = unchanged && ((prev-CPT[ind]) < THRESHOLD);
+                Table[ind] = 0;
+            }
         }
-        for(int i=0; i<this->CPT.size(); i++){
-            this->Table[i] = 0;
-        }
-        // Table.clear();
-        // vector<int> vec(CPT.size(), 0);
-        // Table = vec;
-        // cout << " and returned\n";
+        // int normalisation = accumulate(this->Table.begin(), this->Table.end(), 0);
+        // for(int i=0; i<CPT.size(); i++){
+        //     float prev = CPT[i];
+        //     CPT[i] = ((float)Table[i])/((float)normalisation);
+        //     unchanged = unchanged && ((prev-CPT[i]) < THRESHOLD); 
+        // }
+
+        // for(int i=0; i<this->Table.size(); i++){
+        //     this->Table[i] = 0;
+        // }
         return unchanged;
     }
 
-    int infer(vector<vector<int>>::iterator example){
+    float prob_me(vector<vector<int>>::iterator example){
+        int index = 0;
+        int group_size = 1;
+        for(int i=Parents.size()-1; i>=0; i--){
+            index += group_size * ((*example)[Parents[i]]);
+            group_size *= Parents_nvalues[i];
+        }
+        index += group_size * ((*example)[my_index]);
+        return CPT[index];
+    }
+
+    int infer(vector<vector<int>>::iterator example, auto graph){
         // TODO: CHECK: also set the "?" with the inferred value
-        (*example)[this->my_index] = 0;
-        return 0;
+        int prev = (*example)[my_index];
+        float max = -1;
+        int inferred_val = -1;
+
+        // iterate over all values and find one with max prob. 
+        for(int val=0; val<nvalues; val++){
+            (*example)[my_index] = val;
+            float prob = 1;
+            prob *= prob_me(example);
+            // find prob for each child being as in example when you have value=val
+            for(int i=0; i<Children.size(); i++){
+                prob *= graph->get_nth_node(Children[i])->prob_me(example);
+            }
+            if(prob > max){
+                max = prob;
+                inferred_val = val;
+            }
+        } 
+
+        (*example)[my_index] = inferred_val;
+        return inferred_val;
     }
 };
 
@@ -225,7 +267,6 @@ public:
         for(listIt=Pres_Graph.begin();listIt!=Pres_Graph.end();listIt++)
         {
             if(listIt->get_name().compare(val_name)==0)
-                // (*to_set_nvalues) = listIt->nvalues;
                 return pair<int, int>(index, listIt->nvalues);
             index ++;
         }
@@ -330,10 +371,21 @@ network read_network(){
   	return Alarm1;
 }
 
+void print_CPT(){
+    for(auto iter=Alarm.Pres_Graph.begin(); iter!=Alarm.Pres_Graph.end(); iter++){
+        cout << iter->Node_Name << endl;
+        printVector(iter->CPT);
+        cout << endl;
+        cout << endl;
+    }
+}
+
 void read_dataset(int num_vars, vector<int> *indexes, vector<int> *assignments){
     string line;
     ifstream myfile("records.dat");
+    // int line_no = 0;
     while(!myfile.eof()){
+        // cout << line_no << endl;
         stringstream ss;
         vector<int> vec(num_vars);
         string temp;
@@ -347,6 +399,7 @@ void read_dataset(int num_vars, vector<int> *indexes, vector<int> *assignments){
                 found_q = true;
                 indexes->push_back(i);
                 int rand_val = rand()%gg->nvalues;
+                // rand_val = -1;
                 assignments->push_back(rand_val);
                 vec[i] = rand_val;
             }
@@ -356,8 +409,6 @@ void read_dataset(int num_vars, vector<int> *indexes, vector<int> *assignments){
                 for(valuesIT=gg->values.begin(); valuesIT!=gg->values.end(); valuesIT++){
                     if(valuesIT->compare(temp)==0){
                         vec[i] = ind;
-                        // cout << "READ [" << temp << "] as " << vec[i] << " from values";
-                        // printVector(gg->get_values());  
                         break;
                     }
                     // TODO: remove this (not needed) (just for debugging)
@@ -405,11 +456,11 @@ void EM(vector<int>& q_indexes){
         q_iter = q_indexes.begin();
         for(iter_data=dataset.begin(); iter_data!=dataset.end(); iter_data++){
             if((*q_iter)!=-1){
-                Alarm.get_nth_node((*q_iter))->infer(iter_data);
+                Alarm.get_nth_node((*q_iter))->infer(iter_data, &Alarm);
             }
             // add counts to all nodes
             for(nodes_iter = Alarm.Pres_Graph.begin(); nodes_iter!=Alarm.Pres_Graph.end(); nodes_iter++){
-                nodes_iter->fill_count_table(iter_data, Alarm);
+                nodes_iter->fill_count_table(iter_data);
             }
             q_iter++;
             ex_num++;
@@ -417,7 +468,11 @@ void EM(vector<int>& q_indexes){
         cout << "hehe" << endl;
         // 2. update CPT using tables for each node
         for(nodes_iter = Alarm.Pres_Graph.begin(); nodes_iter!=Alarm.Pres_Graph.end(); nodes_iter++){
-            unchanged = unchanged && nodes_iter->update_CPT();
+            // printVector(nodes_iter->Table);
+            // cout << endl;
+            unchanged = (nodes_iter->update_CPT() && unchanged);
+            // printVector(nodes_iter->Table);
+            // cout << endl;
         }
 
         num_iterations++;
@@ -444,10 +499,16 @@ int main()
 	cout<<"Perfect! Hurrah! \n" << endl;
 	
     list<Graph_Node>::iterator listIt;
-    // for(listIt=Alarm.Pres_Graph.begin();listIt!=Alarm.Pres_Graph.end();listIt++){
-    //     printVector(listIt->get_Parents());
-    //     // cout << listIt->get_Parents().size() << " " << endl;
-    // }
+    for(listIt=Alarm.Pres_Graph.begin();listIt!=Alarm.Pres_Graph.end();listIt++){
+        // printVector(listIt->get_Parents());
+        // cout << accumulate(listIt->Table.begin(), listIt->Table.end(), 0)<< "\t";
+        cout << listIt->my_index << ": \t" << listIt->nvalues << "\tParents: "; 
+        printVector(listIt->Parents);
+        cout << "\t" << "Parents_nvalues: ";
+        printVector(listIt->Parents_nvalues);
+        cout << endl;
+
+    }
 
     vector<int> q_indexes;
     vector<int> assignments;
@@ -455,14 +516,24 @@ int main()
     
     cout << "Dataset read successfully" << endl;
 
+
+    // for(auto iter_data=dataset.begin(); iter_data!=dataset.end(); iter_data++){
+    //     printVector(*iter_data);
+    //     cout << endl;
+    // }
+
+
+
     EM(q_indexes);
+    // return 0;
 
     cout << "EM is over" << endl;
-    dataset.clear();
-    q_indexes.clear();
-    assignments.clear();
+    // dataset.clear();
+    // q_indexes.clear();
+    // assignments.clear();
 
-    cout << "dataset size is " << dataset.size() << endl;
+    // cout << "dataset size is " << dataset.size() << endl;
+    print_CPT();
 
     return 0;
 }

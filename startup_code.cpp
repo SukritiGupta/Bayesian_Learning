@@ -9,7 +9,7 @@
 #include <algorithm>
 #include <numeric>
 #include <iomanip>
-
+#include <cmath>
 
 // #include <random>
 
@@ -21,7 +21,7 @@ clock_t t;
 using namespace std;
 
 // allocates things on heap
-vector<vector<int>> dataset;
+vector<vector<int> > dataset;
 ofstream outfile;
 
 
@@ -104,7 +104,7 @@ public:
         return 1;
     }
 
-    void fill_count_table(vector<vector<int>>::iterator example){
+    void fill_count_table(vector<vector<int> >::iterator example){
         int index = 0;
         int group_size = 1;
         for(int i=Parents.size()-1; i>=0; i--){
@@ -199,7 +199,7 @@ public:
         return unchanged;
     }
 
-    float prob_me(vector<vector<int>>::iterator example){
+    float prob_me(vector<vector<int> >::iterator example){
         int index = 0;
         int group_size = 1;
         for(int i=Parents.size()-1; i>=0; i--){
@@ -210,7 +210,7 @@ public:
         return CPT[index];
     }
 
-    int infer(vector<vector<int>>::iterator example, auto graph){
+    int infer(vector<vector<int> >::iterator example, auto graph){
         // TODO: CHECK: also set the "?" with the inferred value
         int prev = (*example)[my_index];
         float max = -1;
@@ -480,7 +480,7 @@ void EM(vector<int>& q_indexes){
     // cout << "Called EM" << endl;
     bool unchanged = false;
     int num_iterations = 0;
-    vector<vector<int>>::iterator iter_data;
+    vector<vector<int> >::iterator iter_data;
     vector<int>::iterator q_iter;
     list<Graph_Node>::iterator nodes_iter;
     list<Graph_Node>::iterator nodes_iter2;

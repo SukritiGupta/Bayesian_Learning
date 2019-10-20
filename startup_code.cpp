@@ -15,6 +15,7 @@
 
 
 #define THRESHOLD 0.0001
+clock_t t;
 
 // Format checker just assumes you have Alarm.bif and Solved_Alarm.bif (your file) in current directory
 using namespace std;
@@ -68,13 +69,13 @@ public:
     void extra_work(int size){
         // create a table for keeping counts for CPT
         this->Table.clear();
-        cout << "here ";
+        // cout << "here ";
         // for(int i=0; i<size; i++){
         //     this->Table.push_back(0);
         // }
         vector<int> vec(size, 0);
         Table = vec;
-        cout << "there" << endl;
+        // cout << "there" << endl;
     }
 
     void set_Parents(vector<int> Parent_Nodes, vector<int> nvals_parent, vector<string> Pnames)
@@ -116,28 +117,85 @@ public:
         Table[index] = this->Table[index] + 1 ;
     }
 
+    int get_index_wrt_parents(vector<int>& assignments){
+        int index = 0;
+        int group_size = 1;
+        for(int i=0; i<Parents.size(); i++){
+            index += group_size*assignments[i];
+            group_size *= Parents_nvalues[i];
+        }
+        return index;
+    }
+
     bool update_CPT(){
         bool unchanged = true;
         int n_cols = Table.size()/nvalues; 
+        vector<int> norms(n_cols, 0);
+
         for(int j=0; j<Table.size()/nvalues; j++){
             int norm = 0;
             bool no_zero_exists = true;
             for(int i=0; i<nvalues; i++){
                 norm += Table[i*n_cols + j];
+                norms[j] += Table[i*n_cols + j];
                 no_zero_exists = no_zero_exists && (Table[i*n_cols + j] != 0);
             }
             float smoothing_factor = 0;
             if(!no_zero_exists) smoothing_factor = ((float)norm)/100.0;
             if(norm==0) smoothing_factor += 0.0001;
-            for(int i=0; i<nvalues; i++){
-                int ind = i*n_cols+ j;
-                float prev = CPT[ind];
-                CPT[ind] = (((float)Table[ind])+smoothing_factor)/((float)norm + ((float)nvalues)*smoothing_factor);
-                if(CPT[ind]==0) cout << Node_Name << ":\t[" << ind << "]:" <<CPT[ind] << "\tnorm: " << norm << "\tmy_val: " << Table[ind] << endl;
-                unchanged = unchanged && (abs(prev-CPT[ind]) < THRESHOLD);
-                Table[ind] = 0;
+            if(norm!=0){
+                for(int i=0; i<nvalues; i++){
+                    int ind = i*n_cols+ j;
+                    float prev = CPT[ind];
+                    CPT[ind] = (((float)Table[ind])+smoothing_factor)/((float)norm + ((float)nvalues)*smoothing_factor);
+                    if(CPT[ind]==0) cout << Node_Name << ":\t[" << ind << "]:" <<CPT[ind] << "\tnorm: " << norm << "\tmy_val: " << Table[ind] << endl;
+                    unchanged = unchanged && (abs(prev-CPT[ind]) < THRESHOLD);
+                    Table[ind] = 0;
+                }
+            }    
+        }
+
+        for(int j=0; j<n_cols; j++){
+            if(norms[j]==0){
+                vector<float> ans(nvalues, 0.0);
+                int M = n_cols;
+                int A = j;
+                vector<int> assignments(Parents.size());
+                for(int i=0; i<Parents.size(); i++){
+                    M = M/Parents_nvalues[i];
+                    assignments[i] = A/M;
+                    A -= assignments[i]*M;
+                }
+                int count = 0;
+                for(int i=0; i<Parents.size(); i++){
+                    for(int val=0; val<Parents_nvalues[i]; val++){
+                        if(val!=assignments[i]){
+                            int original = assignments[i];
+                            assignments[i] = val;
+                            int col = get_index_wrt_parents(assignments);
+                            if(norms[col]==0) continue;      // CHECK
+                            assignments[i] = original;
+                            count ++;
+                            for(int m=0; m<nvalues; m++){
+                                // Make sure CPT initially has all zeros
+                                ans[m] += CPT[m*n_cols + col];
+                                // ans[m*n_cols + j] += CPT[m*n_cols + col];
+                            }
+                        }
+                    }
+                }
+                for(int c=0; c<nvalues; c++){
+                    float prev = CPT[c*n_cols + j];
+                    if(count==0){ 
+                        float p = 1/((float)nvalues);
+                        CPT[c*n_cols + j] = p;
+                    }  
+                    else CPT[c*n_cols + j] = (ans[c]/(float)count);
+                    unchanged = unchanged && (abs(prev-CPT[c*n_cols + j]) < THRESHOLD);
+                }
             }
         }
+
         return unchanged;
     }
 
@@ -256,11 +314,11 @@ network Alarm;
 
 
 
-network read_network(){
+network read_network(string bifFile){
 	network Alarm1;
 	string line;
 	int find=0;
-  	ifstream myfile("alarm.bif"); 
+  	ifstream myfile(bifFile); 
   	string temp;
   	string name;
   	vector<string> values;
@@ -363,9 +421,9 @@ void print_CPT(){
     }
 }
 
-void read_dataset(int num_vars, vector<int> *indexes, vector<int> *assignments){
+void read_dataset(int num_vars, vector<int> *indexes, vector<int> *assignments, string recordsFile){
     string line;
-    ifstream myfile("records.dat");
+    ifstream myfile(recordsFile);
     // int line_no = 0;
     while(!myfile.eof()){
         // cout << line_no << endl;
@@ -430,6 +488,10 @@ void EM(vector<int>& q_indexes){
     // cout << "starting EM" << endl;
     // utill convergence
     while((!unchanged) && (num_iterations!=3000)){
+        clock_t curr_time = clock();
+        double time_sec = (double)(curr_time -t)/CLOCKS_PER_SEC;
+        if(time_sec>110)
+            return;
         // cout << "iter: " << num_iterations << endl;
         unchanged = true;
         // 1.1 iterate over dataset, infer "?" 
@@ -488,11 +550,14 @@ void print_bif(){
     }
 }
 
-
-int main()
+int main(int argc, char const *argv[])
 {
+    t = clock();
     outfile.open("solved_alarm.bif");
-	Alarm=read_network();
+ 
+    string bifFile = argv[1];
+    string recordsFile = argv[2];
+    Alarm=read_network(bifFile);
 
     // Example: to do something
 	// cout<<"Perfect! Hurrah! \n" << endl;
@@ -511,7 +576,7 @@ int main()
 
     vector<int> q_indexes;
     vector<int> assignments;
-    read_dataset(Alarm.Pres_Graph.size(), &q_indexes, &assignments);
+    read_dataset(Alarm.Pres_Graph.size(), &q_indexes, &assignments, recordsFile);
     
     // cout << "Dataset read successfully" << endl;
 
@@ -532,7 +597,7 @@ int main()
     // assignments.clear();
 
     // cout << "dataset size is " << dataset.size() << endl;
-    print_CPT();
+    // print_CPT();
     print_bif();
 
     return 0;

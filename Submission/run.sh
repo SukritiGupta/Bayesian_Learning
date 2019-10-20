@@ -1,0 +1,1 @@
+./startup.out $1 $2

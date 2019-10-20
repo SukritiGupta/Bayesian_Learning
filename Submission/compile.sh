@@ -1,0 +1,1 @@
+g++ -std=c++14 -O3 startup_code.cpp -o startup.out

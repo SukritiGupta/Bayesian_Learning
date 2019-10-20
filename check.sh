@@ -1,4 +1,5 @@
 rm startup.out
 rm out.txt
-g++ -O3 startup_code.cpp -o startup.out
-./startup.out >> out.txt
+# rm solved_alarm.bif
+time g++ -O3 startup_code.cpp -o startup.out
+time ./startup.out >> out.txt

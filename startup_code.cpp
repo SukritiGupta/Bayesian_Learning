@@ -8,6 +8,8 @@
 #include <iterator>
 #include <algorithm>
 #include <numeric>
+#include <iomanip>
+
 
 // #include <random>
 
@@ -19,13 +21,14 @@ using namespace std;
 
 // allocates things on heap
 vector<vector<int>> dataset;
+ofstream outfile;
 
 
 template<typename T>
 void printVector(const T& t) {
-    cout << "[ ";
-    std::copy(t.cbegin(), t.cend(), std::ostream_iterator<typename T::value_type>(std::cout, ", "));
-    cout << "]" ;
+    // cout << "[ ";
+    std::copy(t.cbegin(), t.cend(), std::ostream_iterator<typename T::value_type>(std::cout, " "));
+    // cout << "]" ;
 } 
 
 
@@ -36,6 +39,7 @@ public:
 	string Node_Name;  // Variable name 
 	vector<int> Children; // Children of a particular node - these are index of nodes in graph.
 	vector<int> Parents; // Parents of a particular node- note these are names of parents
+    vector<string> Parents_names;
     vector<int> Parents_nvalues;
 	int nvalues;  // Number of categories a variable represented by this node can take
 	vector<string> values; // Categories of possible values
@@ -93,12 +97,14 @@ public:
         cout << "there" << endl;
     }
 
-    void set_Parents(vector<int> Parent_Nodes, vector<int> nvals_parent)
+    void set_Parents(vector<int> Parent_Nodes, vector<int> nvals_parent, vector<string> Pnames)
     {
         Parents.clear();
         Parents=Parent_Nodes;
         Parents_nvalues.clear();
         Parents_nvalues=nvals_parent;
+        Parents_names.clear();
+        Parents_names=Pnames;
 
         cout << "----------------- \n";
         printVector(Parents);
@@ -137,21 +143,23 @@ public:
 
     bool update_CPT(){
         bool unchanged = true;
+        int n_cols = Table.size()/nvalues; 
         for(int j=0; j<Table.size()/nvalues; j++){
             int norm = 0;
             bool no_zero_exists = true;
             for(int i=0; i<nvalues; i++){
-                norm += Table[i + nvalues*j];
-                no_zero_exists = no_zero_exists && (Table[i + nvalues*j] != 0);
+                norm += Table[i*n_cols + j];
+                no_zero_exists = no_zero_exists && (Table[i*n_cols + j] != 0);
             }
             float smoothing_factor = 0;
-            if(!no_zero_exists) smoothing_factor = 0.15;
+            if(!no_zero_exists) smoothing_factor = ((float)norm)/100.0;
+            if(norm==0) smoothing_factor += 0.0001;
             for(int i=0; i<nvalues; i++){
-                int ind = i+ nvalues*j;
+                int ind = i*n_cols+ j;
                 float prev = CPT[ind];
                 CPT[ind] = (((float)Table[ind])+smoothing_factor)/((float)norm + ((float)nvalues)*smoothing_factor);
                 if(CPT[ind]==0) cout << Node_Name << ":\t[" << ind << "]:" <<CPT[ind] << "\tnorm: " << norm << "\tmy_val: " << Table[ind] << endl;
-                unchanged = unchanged && ((prev-CPT[ind]) < THRESHOLD);
+                unchanged = unchanged && (abs(prev-CPT[ind]) < THRESHOLD);
                 Table[ind] = 0;
             }
         }
@@ -293,20 +301,27 @@ network read_network(){
   	vector<string> values;
     vector<int> values2;
     vector<int> values3;
+    vector<string> values4;
   	int num_nodes = 0;
+    bool done_print1 = false;
 
     if (myfile.is_open()){
     	while (! myfile.eof() ){
     		stringstream ss;
       		getline (myfile,line);
       		
+
       		ss.str(line);
      		ss>>temp;
+
+            if(!done_print1 && temp.compare("probability")!=0) outfile << line << endl;
+
      		
      		if(temp.compare("variable")==0){
  				ss>>name;
  				getline (myfile,line);
-               
+                if(!done_print1) outfile << line << endl;
+
  				stringstream ss2;
  				ss2.str(line);
  				for(int i=0;i<4;i++){
@@ -324,6 +339,7 @@ network read_network(){
                 num_nodes++;
      		}
      		else if(temp.compare("probability")==0){
+                done_print1 = true;
  				ss>>temp;
  				ss>>temp;
  				
@@ -334,15 +350,17 @@ network read_network(){
                 ss>>temp;
                 values2.clear();
                 values3.clear();
+                values4.clear();
  				while(temp.compare(")")!=0){
                     listIt1=Alarm1.search_node(temp);
                     listIt1->add_child(index);
                     pair<int, int> ind = Alarm1.search_node_index(temp);
  					values2.push_back(ind.first);
                     values3.push_back(ind.second);
+                    values4.push_back(temp);
  					ss >> temp;
 				}
-                listIt->set_Parents(values2, values3);
+                listIt->set_Parents(values2, values3, values4);
 				getline (myfile,line);
  				stringstream ss2;
  				ss2.str(line);
@@ -490,11 +508,28 @@ void EM(vector<int>& q_indexes){
 //     // else update_table
 // }
 
+void print_bif(){
+    list<Graph_Node>::iterator iter;
+    for(iter = Alarm.Pres_Graph.begin(); iter != Alarm.Pres_Graph.end(); iter++){
+        outfile << "probability (  " << iter->Node_Name;
+        for(vector<string>::iterator i=iter->Parents_names.begin(); i!=iter->Parents_names.end(); i++){
+            outfile << "  " << (*i);
+        }
+        outfile << " ) { //" << (iter->Parents.size()+1) << " variable(s) and " << iter->CPT.size() << " values\n";
+        outfile << "\ttable ";
+        for(auto i=iter->CPT.begin(); i!=iter->CPT.end(); i++){
+            outfile << fixed<< setprecision(4)<<(*i) << " ";
+        }
+        outfile << ";" << endl << "}\n";
+    }
+}
+
 
 int main()
 {
+    outfile.open("solved_alarm.bif");
 	Alarm=read_network();
-    
+
     // Example: to do something
 	cout<<"Perfect! Hurrah! \n" << endl;
 	
@@ -534,6 +569,7 @@ int main()
 
     // cout << "dataset size is " << dataset.size() << endl;
     print_CPT();
+    print_bif();
 
     return 0;
 }

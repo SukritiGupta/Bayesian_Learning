@@ -156,7 +156,7 @@ void check_format()
 	network Alarm;
 	string line,testline;
 	int find=0;
-  	ifstream myfile("alarm.bif"); 
+  	ifstream myfile("gold_alarm.bif"); 
     ifstream testfile("solved_alarm.bif");
   	string temp;
   	string name;

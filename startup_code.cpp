@@ -56,26 +56,6 @@ public:
 		values=vals;
         my_index = ind;
 	}
-	string get_name()
-	{
-		return Node_Name;
-	}
-	vector<int> get_children()
-	{
-		return Children;
-	}
-	vector<int> get_Parents()
-	{
-		return Parents;
-	}
-	vector<float> get_CPT()
-	{
-		return CPT;
-	}
-	int get_nvalues()
-	{
-		return nvalues;
-	}
 	vector<string> get_values()
 	{
 		return values;
@@ -99,26 +79,26 @@ public:
 
     void set_Parents(vector<int> Parent_Nodes, vector<int> nvals_parent, vector<string> Pnames)
     {
-        Parents.clear();
+        // Parents.clear();
         Parents=Parent_Nodes;
-        Parents_nvalues.clear();
+        // Parents_nvalues.clear();
         Parents_nvalues=nvals_parent;
-        Parents_names.clear();
+        // Parents_names.clear();
         Parents_names=Pnames;
 
-        cout << "----------------- \n";
-        printVector(Parents);
-        printVector(Parents_nvalues);
-        cout << endl << endl;
+        // cout << "----------------- \n";
+        // printVector(Parents);
+        // printVector(Parents_nvalues);
+        // cout << endl << endl;
     }
     // add another node in a graph as a child of this node
     int add_child(int new_child_index )
     {
-        for(int i=0;i<Children.size();i++)
-        {
-            if(Children[i]==new_child_index)
-                return 0;
-        }
+        // for(int i=0;i<Children.size();i++)
+        // {
+        //     if(Children[i]==new_child_index)
+        //         return 0;
+        // }
         Children.push_back(new_child_index);
         return 1;
     }
@@ -134,11 +114,6 @@ public:
         }
         index += group_size * ((*example)[this->my_index]);
         Table[index] = this->Table[index] + 1 ;
-    }
-
-    void update_count_table(vector<int>& example, int changed_variable, int last_value){
-        cout << "ERROR: Method \"update_count_table\" not implemented yet\n";
-        return;
     }
 
     bool update_CPT(){
@@ -163,16 +138,6 @@ public:
                 Table[ind] = 0;
             }
         }
-        // int normalisation = accumulate(this->Table.begin(), this->Table.end(), 0);
-        // for(int i=0; i<CPT.size(); i++){
-        //     float prev = CPT[i];
-        //     CPT[i] = ((float)Table[i])/((float)normalisation);
-        //     unchanged = unchanged && ((prev-CPT[i]) < THRESHOLD); 
-        // }
-
-        // for(int i=0; i<this->Table.size(); i++){
-        //     this->Table[i] = 0;
-        // }
         return unchanged;
     }
 
@@ -235,7 +200,7 @@ public:
         int count=0;
         for(listIt=Pres_Graph.begin();listIt!=Pres_Graph.end();listIt++)
         {
-            if(listIt->get_name().compare(val_name)==0)
+            if(listIt->Node_Name.compare(val_name)==0)
                 return count;
             count++;
         }
@@ -260,7 +225,7 @@ public:
         list<Graph_Node>::iterator listIt;
         for(listIt=Pres_Graph.begin();listIt!=Pres_Graph.end();listIt++)
         {
-            if(listIt->get_name().compare(val_name)==0)
+            if(listIt->Node_Name.compare(val_name)==0)
                 return listIt;
         }
     
@@ -274,7 +239,7 @@ public:
         int index = 0;
         for(listIt=Pres_Graph.begin();listIt!=Pres_Graph.end();listIt++)
         {
-            if(listIt->get_name().compare(val_name)==0)
+            if(listIt->Node_Name.compare(val_name)==0)
                 return pair<int, int>(index, listIt->nvalues);
             index ++;
         }
@@ -335,7 +300,7 @@ network read_network(){
  					ss2>>temp;
 				}
  				Graph_Node new_node(name,values.size(),values, num_nodes);
- 				int pos=Alarm1.addNode(new_node);
+ 				Alarm1.Pres_Graph.push_back(new_node);
                 num_nodes++;
      		}
      		else if(temp.compare("probability")==0){
@@ -454,7 +419,7 @@ void read_dataset(int num_vars, vector<int> *indexes, vector<int> *assignments){
 }
 
 void EM(vector<int>& q_indexes){
-    cout << "Called EM" << endl;
+    // cout << "Called EM" << endl;
     bool unchanged = false;
     int num_iterations = 0;
     vector<vector<int>>::iterator iter_data;
@@ -462,10 +427,10 @@ void EM(vector<int>& q_indexes){
     list<Graph_Node>::iterator nodes_iter;
     list<Graph_Node>::iterator nodes_iter2;
 
-    cout << "starting EM" << endl;
+    // cout << "starting EM" << endl;
     // utill convergence
     while((!unchanged) && (num_iterations!=3000)){
-        cout << "iter: " << num_iterations << endl;
+        // cout << "iter: " << num_iterations << endl;
         unchanged = true;
         // 1.1 iterate over dataset, infer "?" 
         // 1.2 add counts to table
@@ -483,7 +448,6 @@ void EM(vector<int>& q_indexes){
             q_iter++;
             ex_num++;
         }
-        cout << "hehe" << endl;
         // 2. update CPT using tables for each node
         for(nodes_iter = Alarm.Pres_Graph.begin(); nodes_iter!=Alarm.Pres_Graph.end(); nodes_iter++){
             // printVector(nodes_iter->Table);
@@ -494,11 +458,11 @@ void EM(vector<int>& q_indexes){
         }
 
         num_iterations++;
-        if(num_iterations%1 == 0){
-            cout << num_iterations << " iterations of EM over" << endl;
-        }
-        if(unchanged)
-            cout << "CONVERGED" << endl;
+        // if(num_iterations%1 == 0){
+        //     cout << num_iterations << " iterations of EM over" << endl;
+        // }
+        // if(unchanged)
+        //     cout << "CONVERGED" << endl;
     }
     return;
 }
@@ -531,25 +495,25 @@ int main()
 	Alarm=read_network();
 
     // Example: to do something
-	cout<<"Perfect! Hurrah! \n" << endl;
+	// cout<<"Perfect! Hurrah! \n" << endl;
 	
     list<Graph_Node>::iterator listIt;
-    for(listIt=Alarm.Pres_Graph.begin();listIt!=Alarm.Pres_Graph.end();listIt++){
-        // printVector(listIt->get_Parents());
-        // cout << accumulate(listIt->Table.begin(), listIt->Table.end(), 0)<< "\t";
-        cout << listIt->my_index << ": \t" << listIt->nvalues << "\tParents: "; 
-        printVector(listIt->Parents);
-        cout << "\t" << "Parents_nvalues: ";
-        printVector(listIt->Parents_nvalues);
-        cout << endl;
+    // for(listIt=Alarm.Pres_Graph.begin();listIt!=Alarm.Pres_Graph.end();listIt++){
+    //     // printVector(listIt->get_Parents());
+    //     // cout << accumulate(listIt->Table.begin(), listIt->Table.end(), 0)<< "\t";
+    //     cout << listIt->my_index << ": \t" << listIt->nvalues << "\tParents: "; 
+    //     printVector(listIt->Parents);
+    //     cout << "\t" << "Parents_nvalues: ";
+    //     printVector(listIt->Parents_nvalues);
+    //     cout << endl;
 
-    }
+    // }
 
     vector<int> q_indexes;
     vector<int> assignments;
     read_dataset(Alarm.Pres_Graph.size(), &q_indexes, &assignments);
     
-    cout << "Dataset read successfully" << endl;
+    // cout << "Dataset read successfully" << endl;
 
 
     // for(auto iter_data=dataset.begin(); iter_data!=dataset.end(); iter_data++){
@@ -562,7 +526,7 @@ int main()
     EM(q_indexes);
     // return 0;
 
-    cout << "EM is over" << endl;
+    // cout << "EM is over" << endl;
     // dataset.clear();
     // q_indexes.clear();
     // assignments.clear();

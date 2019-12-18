@@ -144,13 +144,28 @@ public:
             if(!no_zero_exists) smoothing_factor = ((float)norm)/100.0;
             if(norm==0) smoothing_factor += 0.0001;
             if(norm!=0){
-                for(int i=0; i<nvalues; i++){
-                    int ind = i*n_cols+ j;
-                    float prev = CPT[ind];
-                    CPT[ind] = (((float)Table[ind])+smoothing_factor)/((float)norm + ((float)nvalues)*smoothing_factor);
-                    if(CPT[ind]==0) cout << Node_Name << ":\t[" << ind << "]:" <<CPT[ind] << "\tnorm: " << norm << "\tmy_val: " << Table[ind] << endl;
-                    unchanged = unchanged && (abs(prev-CPT[ind]) < THRESHOLD);
-                    Table[ind] = 0;
+                if(norm>=0.5*nvalues)
+                {
+                    for(int i=0; i<nvalues; i++){
+                        int ind = i*n_cols+ j;
+                        float prev = CPT[ind];
+                        CPT[ind] = (((float)Table[ind])+smoothing_factor)/((float)norm + ((float)nvalues)*smoothing_factor);
+                        if(CPT[ind]==0) cout << Node_Name << ":\t[" << ind << "]:" <<CPT[ind] << "\tnorm: " << norm << "\tmy_val: " << Table[ind] << endl;
+                        unchanged = unchanged && (abs(prev-CPT[ind]) < THRESHOLD);
+                        Table[ind] = 0;
+                    }
+                }
+                else
+                {
+                    for(int i=0; i<nvalues; i++){
+                        int ind = i*n_cols+ j;
+                        float prev = CPT[ind];
+                        CPT[ind] = (0.1/(float)(nvalues))+0.9*((((float)Table[ind])+smoothing_factor)/((float)norm + ((float)nvalues)*smoothing_factor));
+                        if(CPT[ind]==0) cout << Node_Name << ":\t[" << ind << "]:" <<CPT[ind] << "\tnorm: " << norm << "\tmy_val: " << Table[ind] << endl;
+                        unchanged = unchanged && (abs(prev-CPT[ind]) < THRESHOLD);
+                        Table[ind] = 0;
+                    }
+
                 }
             }    
         }
